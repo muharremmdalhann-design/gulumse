@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -97,22 +98,42 @@ async function setup() {
 function draw() {
     background(0);
 
-    // 🎥 TAM EKRAN (COVER) KAMERA MANTIĞI
-    if (isVideoReady) {
-        push();
-        // Aynalı görünüm ve merkeze taşıma
-        translate(width, 0);
-        scale(-1, 1); 
-        
-        // Ekranı tam doldurmak için gereken ölçek (scale)
-        let scaleVal = max(width / video.width, height / video.height);
-        let sw = video.width * scaleVal;
-        let sh = video.height * scaleVal;
-        
-        // Görüntüyü tam ortalayarak çiz (Taşan kısımlar dışarıda kalır, basılma olmaz)
-        image(video, (width/scaleVal - video.width)/2 * scaleVal, (height/scaleVal - video.height)/2 * scaleVal, sw, sh);
-        pop();
+   // 🎥 TAM EKRAN COVER (Gerçek çözünürlükle)
+if (isVideoReady && video.elt.videoWidth > 0) {
+
+    push();
+
+    translate(width, 0);
+    scale(-1, 1);
+
+    let vw = video.elt.videoWidth;
+    let vh = video.elt.videoHeight;
+
+    let canvasRatio = width / height;
+    let videoRatio = vw / vh;
+
+    let drawWidth, drawHeight;
+
+    if (videoRatio > canvasRatio) {
+        // Video daha geniş → yanlardan kırp
+        drawHeight = height;
+        drawWidth = height * videoRatio;
+    } else {
+        // Video daha uzun → üst-alt kırp
+        drawWidth = width;
+        drawHeight = width / videoRatio;
     }
+
+    image(video, 
+        (width - drawWidth) / 2,
+        (height - drawHeight) / 2,
+        drawWidth,
+        drawHeight
+    );
+
+    pop();
+}
+
 
     fill(0, 0, 0, 0.75);
     rect(0, 0, width, height);
