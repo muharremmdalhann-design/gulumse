@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Sen Gülümsersen Çiçekler Açar</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #message {
+            position: absolute;
+            top: 35%;
+            width: 100%;
+            text-align: center;
+            color: #ffff00;
+            font-family: 'Bebas Neue', cursive;
+            font-size: 2rem;
+            text-shadow: 0 0 8px rgba(255, 255, 0, 1);
+            z-index: 100;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body onclick="if(video) video.elt.play()">
+
+<div id="message">
+Sen gülümsersen çiçekler açar... <br>
+Hadi gülümse :)
+</div>
+
+<script>
+
+let video;
+let isModelLoaded = false;
+let isVideoReady = false;
+
+let flowers = [];
+const NUM_FLOWERS = 75;
+
+let currentJoy = 0;
+let targetJoy = 0;
+
+const ANALYSIS_INTERVAL = 200;
+
+async function setup() {
+
+    createCanvas(windowWidth, windowHeight);
+    colorMode(HSB, 360, 100, 100, 1);
+
+    for (let i = 0; i < NUM_FLOWERS; i++) {
+        flowers.push({
+            x: random(width),
+            y: random(height),
+            maxSize: random(50, 95),
+            hue: random(0, 360),
+            offX: random(20000),
+            offY: random(20000),
+            noiseSpeed: random(0.0003, 0.0007)
+        });
+    }
+
+    video = createCapture(VIDEO, () => { isVideoReady = true; });
+    video.size(640, 480);
+    video.hide();
+
+    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+
+    isModelLoaded = true;
+
+    setInterval(analyzeFace, ANALYSIS_INTERVAL);
+}
+
+function draw() {
+
+    // 🎥 KAMERA ARKA PLAN
+    if (isVideoReady) {
+        push();
+        translate(width, 0);
+        scale(-1, 1); // aynalı görünüm
+        image(video, 0, 0, width, height);
+        pop();
+    } else {
+        background(0);
+    }
+
+    // Hafif karartma (çiçekler daha görünür olsun)
+    fill(0, 0, 0, 0.75);
+    rect(0, 0, width, height);
+
+    // Joy yumuşatma
+    currentJoy = lerp(currentJoy, targetJoy, 0.05);
+
+    for (let f of flowers) {
+
+        f.x += map(noise(f.offX), 0, 1, -0.6, 0.6);
+        f.y += map(noise(f.offY), 0, 1, -0.6, 0.6);
+
+        f.offX += f.noiseSpeed;
+        f.offY += f.noiseSpeed;
+
+        if (f.x < -100) f.x = width + 100;
+        if (f.x > width + 100) f.x = -100;
+        if (f.y < -100) f.y = height + 100;
+        if (f.y > height + 100) f.y = -100;
+
+        drawMorphingFlower(f.x, f.y, f.maxSize, f.hue, currentJoy);
+    }
+}
+
+async function analyzeFace() {
+
+    if (!isModelLoaded || !isVideoReady) return;
+
+    const detections = await faceapi
+        .detectAllFaces(video.elt, new faceapi.TinyFaceDetectorOptions())
+        .withFaceExpressions();
+
+    if (detections && detections.length > 0) {
+        let joyValue = detections[0].expressions.happy;
+
+        if (abs(joyValue - targetJoy) > 0.08) {
+            targetJoy = joyValue;
+        }
+
+    } else {
+        targetJoy = 0;
+    }
+}
+
+function drawMorphingFlower(x, y, maxSize, h, joy) {
+
+    push();
+    translate(x, y);
+    noStroke();
+
+    let currentCenter = map(joy, 0, 1, 2.5, maxSize * 0.2);
+    let brightness = map(joy, 0, 1, 40, 100);
+    let alpha = 0.8;
+
+    fill(h, 80, brightness, alpha);
+    ellipse(0, 0, currentCenter, currentCenter);
+
+    if (joy > 0.08) {
+
+        let openDist = map(joy, 0.08, 1, 0, maxSize * 0.4);
+        let petalW = map(joy, 0.08, 1, 0, maxSize * 0.5);
+        let petalH = map(joy, 0.08, 1, 0, maxSize * 0.25);
+
+        fill(h, 50, brightness, alpha * 0.7);
+
+        for (let i = 0; i < 6; i++) {
+            rotate(PI / 3);
+            ellipse(openDist, 0, petalW, petalH);
+        }
+    }
+
+    pop();
+}
+
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+}
+
+</script>
+</body>
+</html>
